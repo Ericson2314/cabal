@@ -21,6 +21,7 @@ module Distribution.Solver.Modular.Dependency (
   , FlaggedDeps
   , FlaggedDep(..)
   , Dep(..)
+  , DepRole(..)
   , showDep
   , flattenFlaggedDeps
   , QualifyOptions(..)
@@ -53,6 +54,7 @@ import qualified Data.List as L
 import Language.Haskell.Extension (Extension(..), Language(..))
 
 import Distribution.Text
+import Distribution.Types.UnqualComponentName
 
 import Distribution.Solver.Modular.ConflictSet (ConflictSet, ConflictMap)
 import Distribution.Solver.Modular.Flag
@@ -166,8 +168,19 @@ flattenFlaggedDeps = concatMap aux
 type TrueFlaggedDeps  qpn = FlaggedDeps Component qpn
 type FalseFlaggedDeps qpn = FlaggedDeps Component qpn
 
--- | Is this dependency on an executable
-type IsExe = Bool
+
+-- | Why do we depend on this package? The role of a dependency package is the
+-- components to be used from that package.
+--
+-- TODO: add a similar field for 'Library' if allow depending on named
+-- libraries.
+data DepRole = DRLib
+             | DRExe UnqualComponentName
+  deriving (Eq, Show)
+
+showDepRole :: DepRole -> String
+showDepRole DRLib = ""
+showDepRole (DRExe n) = " (exe: " ++ display n ++ ") "
 
 -- | A dependency (constraint) associates a package name with a
 -- constrained instance.
@@ -176,22 +189,20 @@ type IsExe = Bool
 -- is used both to record the dependencies as well as who's doing the
 -- depending; having a 'Functor' instance makes bugs where we don't distinguish
 -- these two far too likely. (By rights 'Dep' ought to have two type variables.)
-data Dep qpn = Dep IsExe qpn (CI qpn)  -- ^ dependency on a package (possibly for executable
+data Dep qpn = Dep DepRole qpn (CI qpn)  -- ^ dependency on a package (possibly for executable
              | Ext  Extension          -- ^ dependency on a language extension
              | Lang Language           -- ^ dependency on a language version
              | Pkg  PkgconfigName VR   -- ^ dependency on a pkg-config package
   deriving (Eq, Show)
 
 showDep :: Dep QPN -> String
-showDep (Dep is_exe qpn (Fixed i v)            ) =
+showDep (Dep role qpn (Fixed i v)            ) =
   (if P qpn /= v then showVar v ++ " => " else "") ++
-  showQPN qpn ++
-  (if is_exe then " (exe) " else "") ++ "==" ++ showI i
-showDep (Dep is_exe qpn (Constrained [(vr, v)])) =
-  showVar v ++ " => " ++ showQPN qpn ++
-  (if is_exe then " (exe) " else "") ++ showVR vr
-showDep (Dep is_exe qpn ci                     ) =
-  showQPN qpn ++ (if is_exe then " (exe) " else "") ++ showCI ci
+  showQPN qpn ++ showDepRole role ++ "==" ++ showI i
+showDep (Dep role qpn (Constrained [(vr, v)])) =
+  showVar v ++ " => " ++ showQPN qpn ++ showDepRole role ++ showVR vr
+showDep (Dep role qpn ci                     ) =
+  showQPN qpn ++ showDepRole role ++ showCI ci
 showDep (Ext ext)   = "requires " ++ display ext
 showDep (Lang lang) = "requires " ++ display lang
 showDep (Pkg pn vr) = "requires pkg-config package "
@@ -243,12 +254,12 @@ qualifyDeps QO{..} (Q pp@(PackagePath ns q) pn) = go
     goD (Ext  ext)    _    = Ext  ext
     goD (Lang lang)   _    = Lang lang
     goD (Pkg pkn vr)  _    = Pkg pkn vr
-    goD (Dep is_exe dep ci) comp
-      | is_exe      = goQ $ QualExe  pn (TargetExe dep) : qStub
-      | qBase dep   = goQ $ QualBase pn                 : qStub
-      | qSetup comp = goQ $ QualExe  pn TargetOwnSetup  : qStub
-      | otherwise   = goQ $ qStub
-      where goQ qual = Dep is_exe
+    goD (Dep role dep ci) comp
+      | DRExe _ <- role = goQ $ QualExe  pn (TargetExe dep) : qStub
+      | qBase dep       = goQ $ QualBase pn                 : qStub
+      | qSetup comp     = goQ $ QualExe  pn TargetOwnSetup  : qStub
+      | otherwise       = goQ $ qStub
+      where goQ qual = Dep role
                            (Q (PackagePath ns $ prune qual) dep)
                            (fmap (Q pp) ci)
 
@@ -315,7 +326,7 @@ unqualifyDeps = go
     go1 (Simple dep comp)    = Simple (goD dep) comp
 
     goD :: Dep QPN -> Dep PN
-    goD (Dep is_exe qpn ci) = Dep is_exe (unq qpn) (fmap unq ci)
+    goD (Dep role qpn ci) = Dep role (unq qpn) (fmap unq ci)
     goD (Ext  ext)   = Ext ext
     goD (Lang lang)  = Lang lang
     goD (Pkg pn vr)  = Pkg pn vr
@@ -387,7 +398,7 @@ instance ResetVar CI where
   resetVar v (Constrained vrs) = Constrained (L.map (\ (x, y) -> (x, resetVar v y)) vrs)
 
 instance ResetVar Dep where
-  resetVar v (Dep is_exe qpn ci) = Dep is_exe qpn (resetVar v ci)
+  resetVar v (Dep role qpn ci) = Dep role qpn (resetVar v ci)
   resetVar _ (Ext ext)    = Ext ext
   resetVar _ (Lang lang)  = Lang lang
   resetVar _ (Pkg pn vr)  = Pkg pn vr

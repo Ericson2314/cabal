@@ -269,7 +269,7 @@ buildTree idx (IndependentGoals ind) igs =
   where
     -- Should a top-level goal allowed to be an executable style
     -- dependency? Well, I don't think it would make much difference
-    topLevelGoal qpn = OpenGoal (Simple (Dep False {- not exe -} qpn (Constrained [])) ()) UserGoal
+    topLevelGoal qpn = OpenGoal (Simple (Dep DRLib qpn (Constrained [])) ()) UserGoal
 
     qpns | ind       = makeIndependent igs
          | otherwise = L.map (Q (PackagePath DefaultNamespace [])) igs

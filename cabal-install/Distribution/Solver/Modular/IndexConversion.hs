@@ -94,7 +94,7 @@ convIPId pn' idx ipid =
     Nothing  -> Nothing
     Just ipi -> let i = I (pkgVersion (sourcePackageId ipi)) (Inst ipid)
                     pn = pkgName (sourcePackageId ipi)
-                in  Just (D.Simple (Dep False pn (Fixed i (P pn'))) ())
+                in  Just (D.Simple (Dep DRLib pn (Fixed i (P pn'))) ())
                 -- NB: something we pick up from the
                 -- InstalledPackageIndex is NEVER an executable
 
@@ -297,12 +297,11 @@ convBranch pkg os arch cinfo pi@(PI pn _) fds comp getInfo ipns sexes (CondBranc
 
 -- | Convert a Cabal dependency on a library to a solver-specific dependency.
 convLibDep :: PN -> Dependency -> Dep PN
-convLibDep pn' (Dependency pn vr) = Dep False {- not exe -} pn (Constrained [(vr, P pn')])
+convLibDep pn' (Dependency pn vr) = Dep DRLib pn (Constrained [(vr, P pn')])
 
 -- | Convert a Cabal dependency on a executable (build-tools) to a solver-specific dependency.
--- TODO do something about the name of the exe component itself
 convExeDep :: PN -> ExeDependency -> Dep PN
-convExeDep pn' (ExeDependency pn _ vr) = Dep True pn (Constrained [(vr, P pn')])
+convExeDep pn' (ExeDependency pn en vr) = Dep (DRExe en) pn (Constrained [(vr, P pn')])
 
 -- | Convert setup dependencies
 convSetupBuildInfo :: PI PN -> SetupBuildInfo -> FlaggedDeps Component PN
