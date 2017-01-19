@@ -59,14 +59,14 @@ convConfId (PI (Q (PackagePath _ q) pn) (I v loc)) =
     case loc of
         Inst pi -> Left (PreExistingId sourceId pi)
         _otherwise
-          | QualExe _ pn' <- q
           -- NB: the dependencies of the executable are also
           -- qualified.  So the way to tell if this is an executable
           -- dependency is to make sure the qualifier is pointing
           -- at the actual thing.  Fortunately for us, I was
           -- silly and didn't allow arbitrarily nested build-tools
           -- dependencies, so a shallow check works.
-          , pn == pn' -> Right (PlannedId sourceId)
-          | otherwise    -> Left  (PlannedId sourceId)
+          | any (pn ==) exeQuals -> Right (PlannedId sourceId)
+          | otherwise            -> Left  (PlannedId sourceId)
   where
-    sourceId    = PackageIdentifier pn v
+    sourceId = PackageIdentifier pn v
+    exeQuals = [ pn' | QualExe _ (TargetExe pn') <- q ]

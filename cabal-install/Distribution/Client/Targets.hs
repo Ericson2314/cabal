@@ -42,7 +42,7 @@ module Distribution.Client.Targets (
   disambiguatePackageName,
 
   -- * User constraints
-  UserQualifier(..),
+  UserQualifier,
   UserConstraint(..),
   userConstraintPackageName,
   readUserConstraint,
@@ -688,29 +688,21 @@ extraPackageNameEnv names = PackageNameEnv pkgNameLookup
 
 -- | Version of 'Qualifier' that a user may specify on the
 -- command line.
-data UserQualifier =
-  -- | Top-level dependency.
-  UserToplevel
+type UserQualifier = [UserQualifierEdge]
 
-  -- | Setup dependency.
-  | UserSetup PackageName
-
-  -- | Executable dependency.
-  | UserExe PackageName PackageName
+data UserQualifierEdge = UserExe PackageName QualExeTarget
   deriving (Eq, Show, Generic)
-           
-instance Binary UserQualifier
+
+instance Binary UserQualifierEdge
 
 fromUserQualifier :: UserQualifier -> Qualifier
-fromUserQualifier UserToplevel = QualToplevel
-fromUserQualifier (UserSetup name) = QualSetup name
-fromUserQualifier (UserExe name1 name2) = QualExe name1 name2
+fromUserQualifier = map $ \(UserExe name1 name2) -> QualExe name1 name2
 
 -- | Version of 'PackageConstraint' that the user can specify on
 -- the command line.
 data UserConstraint = UserConstraint UserQualifier PackageName PackageProperty
   deriving (Eq, Show, Generic)
-           
+
 instance Binary UserConstraint
 
 userConstraintPackageName :: UserConstraint -> PackageName
@@ -734,28 +726,30 @@ readUserConstraint str =
          "'source', 'test', 'bench', or flags"
 
 instance Text UserConstraint where
-  disp (UserConstraint qual name prop) =
-    dispQualifier (fromUserQualifier qual) <<>> disp name
+  disp (UserConstraint qual name prop) = dispQualifier (fromUserQualifier qual)
+    <<>> disp name
     <+> dispPackageProperty prop
-  
-  parse = do
-    -- Qualified name
-    pn <- parse
-    (qual, name) <- return (UserToplevel, pn)
-                    +++
-                    do _ <- Parse.string ":setup."
-                       pn2 <- parse
-                       return (UserSetup pn, pn2)
 
-                    -- -- TODO: Re-enable parsing of UserExe once we decide on a syntax.
-                    --
-                    -- +++
-                    -- do _ <- Parse.string ":"
-                    --    pn2 <- parse
-                    --    _ <- Parse.string ":exe."
-                    --    pn3 <- parse
-                    --    return (UserExe pn pn2, pn3)
-                       
+  parse = do
+    qual <- fmap reverse $ Parse.many $ do
+      _ <- Parse.string "("
+
+      srcName <- parse
+      _ <- Parse.string "->"
+      dstName <- parse
+      _ <- Parse.char ':'
+      justSetup <- (Parse.string "setup" >> pure True)
+                   +++ (Parse.char '*' >> pure False)
+      qual <- UserExe srcName <$> case (srcName == dstName, justSetup) of
+        (True, True)  -> return $ TargetOwnSetup
+        (_,    False) -> return $ TargetExe dstName
+        _             -> fail $ "Setup qualifications only constrain deps of the setup executable from the same package, but the two package names given are not the same: " ++ display srcName ++ " and " ++ display dstName
+
+      _ <- Parse.string ")."
+      return qual
+
+    name <- parse
+
     -- Package property
     let keyword str x = Parse.skipSpaces1 >> Parse.string str >> return x
     prop <- ((parse >>= return . PackagePropertyVersion)
@@ -773,6 +767,6 @@ instance Text UserConstraint where
             <++
             (Parse.skipSpaces1 >> parseFlagAssignment
              >>= return . PackagePropertyFlags)
-    
+
     -- Result
     return (UserConstraint qual name prop)

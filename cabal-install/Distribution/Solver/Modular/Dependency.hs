@@ -244,24 +244,49 @@ qualifyDeps QO{..} (Q pp@(PackagePath ns q) pn) = go
     goD (Lang lang)   _    = Lang lang
     goD (Pkg pkn vr)  _    = Pkg pkn vr
     goD (Dep is_exe dep ci) comp
-      | is_exe      = Dep is_exe (Q (PackagePath ns (QualExe pn dep)) dep) (fmap (Q pp) ci)
-      | qBase  dep  = Dep is_exe (Q (PackagePath ns (QualBase  pn)) dep) (fmap (Q pp) ci)
-      | qSetup comp = Dep is_exe (Q (PackagePath ns (QualSetup pn)) dep) (fmap (Q pp) ci)
-      | otherwise   = Dep is_exe (Q (PackagePath ns inheritedQ) dep) (fmap (Q pp) ci)
+      | is_exe      = goQ $ QualExe  pn (TargetExe dep) : qStub
+      | qBase dep   = goQ $ QualBase pn                 : qStub
+      | qSetup comp = goQ $ QualExe  pn TargetOwnSetup  : qStub
+      | otherwise   = goQ $ qStub
+      where goQ qual = Dep is_exe
+                           (Q (PackagePath ns $ prune qual) dep)
+                           (fmap (Q pp) ci)
 
-    -- If P has a setup dependency on Q, and Q has a regular dependency on R, then
-    -- we say that the 'Setup' qualifier is inherited: P has an (indirect) setup
-    -- dependency on R. We do not do this for the base qualifier however.
+    -- We don't want infinite qualification paths, or even overly long ones (See
+    -- #3160 for a detailed discussion of why). This function stops qualifiers
+    -- from getting to long.
     --
-    -- The inherited qualifier is only used for regular dependencies; for setup
-    -- and base deppendencies we override the existing qualifier. See #3160 for
-    -- a detailed discussion.
-    inheritedQ :: Qualifier
-    inheritedQ = case q of
-                   QualSetup _  -> q
-                   QualExe _ _  -> q
-                   QualToplevel -> q
-                   QualBase _   -> QualToplevel
+    -- Technically, we should store the raw qualification path, and then prune
+    -- it in a post-pass, but that would be more refactoring, and not work in
+    -- the infinite case anyways. Since we filter as we go, this gives us the
+    -- identity that:
+    --
+    --   prune == foldr (\cur rest -> prune $ cur : rest) []
+    --
+    -- This implementation works by limiting the path to containing a single
+    -- executable dependency qualification edge. Eventually, when cross
+    -- compilation is properly supported, this will be un-hard-coded to be the
+    -- number of compilers used in the cross-compilation chain.
+    prune :: Qualifier -> Qualifier
+    prune = go (0 :: Word)
+      where
+        go _     []                           = []
+        go 0     ((QualExe _ _)     : suffix) = go 0 suffix
+        go quota (cur@(QualExe _ _) : suffix) = cur : go (quota - 1) suffix
+        go quota (cur               : suffix) = cur : go quota       suffix
+
+    -- If P has an executable (regular or setup) dependency on Q, and Q has a
+    -- regular dependency on R, then we say that the executable qualification
+    -- edge is inherited: P has an (indirect) executable dependency on R.
+    --
+    -- We do not do this for the base qualifier, however. The base qualifier is
+    -- somewhat of a hack and special case. The base qualification only applies
+    -- to immediate deps rather than transitive deps not containing another
+    -- qualifying edge.
+    qStub :: Qualifier
+    qStub = case q of
+      ((QualBase _) : rest) -> rest
+      _                     -> q
 
     -- Should we qualify this goal with the 'Base' package path?
     qBase :: PN -> Bool

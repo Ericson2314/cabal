@@ -47,7 +47,7 @@ data ConstraintScope
 -- the package with the specified name when that package is a
 -- top-level dependency in the default namespace.
 scopeToplevel :: PackageName -> ConstraintScope
-scopeToplevel = ScopeQualified . Q (PackagePath DefaultNamespace QualToplevel)
+scopeToplevel = ScopeQualified . Q (PackagePath DefaultNamespace [])
 
 -- | Returns the package name associated with a constraint scope.
 scopeToPackageName :: ConstraintScope -> PackageName

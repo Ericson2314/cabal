@@ -340,16 +340,19 @@ preferBaseGoalChoice = trav go
     isBase _                       = False
 
 -- | Deal with setup dependencies after regular dependencies, so that we can
--- will link setup dependencies against package dependencies when possible
+-- will link setup dependencies against package dependencies when possible.
 deferSetupChoices :: Tree d c -> Tree d c
 deferSetupChoices = trav go
   where
-    go (GoalChoiceF rdm xs) = GoalChoiceF rdm (P.preferByKeys noSetup xs)
+    go (GoalChoiceF rdm xs) = GoalChoiceF rdm (P.sortByKeys penalizeSetup xs)
     go x                    = x
 
-    noSetup :: Goal QPN -> Bool
-    noSetup (Goal (P (Q (PackagePath _ns (QualSetup _)) _)) _) = False
-    noSetup _                                                  = True
+    countSetups :: Goal QPN -> Int
+    countSetups (Goal (P (Q (PackagePath _ q) _)) _) = -(1 + length q)
+    countSetups _                                    = 0
+
+    penalizeSetup :: Goal QPN -> Goal QPN -> Ordering
+    penalizeSetup x y = countSetups x `compare` countSetups y
 
 -- | Transformation that tries to avoid making weak flag choices early.
 -- Weak flags are trivial flags (not influencing dependencies) or such
