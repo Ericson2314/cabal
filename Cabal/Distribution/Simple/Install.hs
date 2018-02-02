@@ -145,7 +145,7 @@ copyPackage verbosity pkg_descr lbi distPref copydest = do
         installOrdinaryFile verbosity haddockInterfaceFileSrc
                                       haddockInterfaceFileDest
 
-  let lfiles = licenseFiles pkg_descr
+  let lfiles = licenseFiles $ commonPD pkg_descr
   unless (null lfiles) $ do
     createDirectoryIfMissingVerbose verbosity True docPref
     sequence_
@@ -236,8 +236,8 @@ copyComponent _ _ _ (CTest _) _ _ = return ()
 --
 installDataFiles :: Verbosity -> PackageDescription -> FilePath -> IO ()
 installDataFiles verbosity pkg_descr destDataDir =
-  flip traverse_ (dataFiles pkg_descr) $ \ file -> do
-    let srcDataDir = dataDir pkg_descr
+  flip traverse_ (dataFiles $ commonPD pkg_descr) $ \ file -> do
+    let srcDataDir = dataDir $ commonPD pkg_descr
     files <- matchDirFileGlob srcDataDir file
     let dir = takeDirectory file
     createDirectoryIfMissingVerbose verbosity True (destDataDir </> dir)

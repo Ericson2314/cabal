@@ -43,7 +43,7 @@ checkTest fp = cabalGoldenTest fp correct $ do
             -- Note: parser warnings are reported by `cabal check`, but not by
             -- D.PD.Check functionality.
             unlines (map (showPWarning fp) ws) ++
-            unlines (map show (checkPackage gpd Nothing))
+            unlines (map show (checkPackage gpd))
         Left (_, errs) -> unlines $ map (("ERROR: " ++) . showPError fp) errs
   where
     input = "tests" </> "ParserTests" </> "regressions" </> fp

@@ -46,6 +46,7 @@ module Distribution.Simple.SrcDist (
 import Prelude ()
 import Distribution.Compat.Prelude
 
+import Distribution.Compat.Lens
 import Distribution.PackageDescription hiding (Flag)
 import Distribution.PackageDescription.Check hiding (doesFileExist)
 import Distribution.Package
@@ -61,6 +62,9 @@ import Distribution.Simple.Program
 import Distribution.Text
 import Distribution.Types.ForeignLib
 import Distribution.Verbosity
+
+import qualified Distribution.Types.CommonPackageDescription.Lens as L
+import qualified Distribution.Types.PackageId.Lens as L
 
 import Data.List (partition)
 import qualified Data.Map as Map
@@ -146,7 +150,8 @@ listPackageSources verbosity pkg_descr0 pps = do
 listPackageSourcesMaybeExecutable :: PackageDescription -> IO [FilePath]
 listPackageSourcesMaybeExecutable pkg_descr =
   -- Extra source files.
-  fmap concat . for (extraSrcFiles pkg_descr) $ \fpath -> matchFileGlob fpath
+  fmap concat . for (extraSrcFiles $ commonPD pkg_descr) $ \fpath ->
+    matchFileGlob fpath
 
 -- | List those source files that should be copied with ordinary permissions.
 listPackageSourcesOrdinary :: Verbosity
@@ -207,16 +212,16 @@ listPackageSourcesOrdinary verbosity pkg_descr pps =
 
     -- Data files.
   , fmap concat
-    . for (dataFiles pkg_descr) $ \filename ->
-       matchFileGlob (dataDir pkg_descr </> filename)
+    . for (dataFiles $ commonPD pkg_descr) $ \filename ->
+       matchFileGlob (dataDir (commonPD pkg_descr) </> filename)
 
     -- Extra doc files.
   , fmap concat
-    . for (extraDocFiles pkg_descr) $ \ filename ->
+    . for (extraDocFiles $ commonPD pkg_descr) $ \ filename ->
       matchFileGlob filename
 
     -- License file(s).
-  , return (licenseFiles pkg_descr)
+  , return (licenseFiles $ commonPD pkg_descr)
 
     -- Install-include files.
   , fmap concat
@@ -318,7 +323,7 @@ findIncludeFile verbosity (d:ds) f = do
   b <- doesFileExist path
   if b then return (f,path) else findIncludeFile verbosity ds f
 
--- | Remove the auto-generated modules (like 'Paths_*') from 'exposed-modules' 
+-- | Remove the auto-generated modules (like 'Paths_*') from 'exposed-modules'
 -- and 'other-modules'.
 filterAutogenModules :: PackageDescription -> PackageDescription
 filterAutogenModules pkg_descr0 = mapLib filterAutogenModuleLib $
@@ -332,7 +337,7 @@ filterAutogenModules pkg_descr0 = mapLib filterAutogenModuleLib $
     filterAutogenModuleBI bi = bi {
       otherModules   = filter (filterFunction bi) (otherModules bi)
     }
-    pathsModule = autogenPathsModuleName pkg_descr0
+    pathsModule = autogenPathsModuleName (commonPD pkg_descr0)
     filterFunction bi = \mn ->
                                    mn /= pathsModule
                                 && not (mn `elem` autogenModules bi)
@@ -375,11 +380,9 @@ overwriteSnapshotPackageDesc verbosity pkg targetDir = do
 -- corresponding to the given date.
 --
 snapshotPackage :: UTCTime -> PackageDescription -> PackageDescription
-snapshotPackage date pkg =
-  pkg {
-    package = pkgid { pkgVersion = snapshotVersion date (pkgVersion pkgid) }
-  }
-  where pkgid = packageId pkg
+snapshotPackage date = over
+  (L.commonPackageDescription . L.package . L.pkgVersion)
+  (snapshotVersion date)
 
 -- | Modifies a 'Version' by appending a snapshot number corresponding
 -- to the given date.
@@ -461,7 +464,7 @@ allSourcesBuildInfo verbosity bi pps modules = do
 printPackageProblems :: Verbosity -> PackageDescription -> IO ()
 printPackageProblems verbosity pkg_descr = do
   ioChecks      <- checkPackageFiles pkg_descr "."
-  let pureChecks = checkConfiguredPackage pkg_descr
+  let pureChecks = checkPackagePoly pkg_descr
       isDistError (PackageDistSuspicious     _) = False
       isDistError (PackageDistSuspiciousWarn _) = False
       isDistError _                             = True

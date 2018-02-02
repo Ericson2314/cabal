@@ -243,7 +243,7 @@ haddock pkg_descr lbi suffixes flags' = do
         CTest  _ -> when (flag haddockTestSuites)  $ smsg >> doExe component
         CBench _ -> when (flag haddockBenchmarks)  $ smsg >> doExe component
 
-    for_ (extraDocFiles pkg_descr) $ \ fpath -> do
+    for_ (extraDocFiles $ commonPD pkg_descr) $ \ fpath -> do
       files <- matchFileGlob fpath
       for_ files $ copyFileTo verbosity (unDir $ argOutputDir commonArgs)
 
@@ -284,15 +284,17 @@ fromPackageDescription haddockTarget pkg_descr =
                argPackageName = Flag $ packageId $ pkg_descr,
                argOutputDir = Dir $
                    "doc" </> "html" </> haddockDirName haddockTarget pkg_descr,
-               argPrologue = Flag $ if null desc then synopsis pkg_descr
+               argPrologue = Flag $ if null desc
+                                    then synopsis $ commonPD pkg_descr
                                     else desc,
                argTitle = Flag $ showPkg ++ subtitle
              }
       where
-        desc = PD.description pkg_descr
+        desc = PD.description $ commonPD pkg_descr
         showPkg = display (packageId pkg_descr)
-        subtitle | null (synopsis pkg_descr) = ""
-                 | otherwise                 = ": " ++ synopsis pkg_descr
+        subtitle = case synopsis $ commonPD pkg_descr of
+          ""  -> ""
+          syn -> ": " ++ syn
 
 componentGhcOptions :: Verbosity -> LocalBuildInfo
                  -> BuildInfo -> ComponentLocalBuildInfo -> FilePath

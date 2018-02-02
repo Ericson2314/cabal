@@ -1023,7 +1023,7 @@ configureDependencies verbosity use_external_internal_deps
         (failedDeps, allPkgDeps) = partitionEithers
           [ (\s -> (dep, s)) <$> status
           | dep <- enabledBuildDepends pkg_descr enableSpec
-          , let status = selectDependency (package pkg_descr)
+          , let status = selectDependency (packageId pkg_descr)
                   internalPackageSet installedPackageSet
                   requiredDepsMap use_external_internal_deps dep ]
 
@@ -1853,7 +1853,7 @@ checkPackageProblems :: Verbosity
                      -> IO ()
 checkPackageProblems verbosity gpkg pkg = do
   ioChecks      <- checkPackageFiles pkg "."
-  let pureChecks = checkPackage gpkg (Just pkg)
+  let pureChecks = checkPackage gpkg
       errors   = [ e | PackageBuildImpossible e <- pureChecks ++ ioChecks ]
       warnings = [ w | PackageBuildWarning    w <- pureChecks ++ ioChecks ]
   if null errors
