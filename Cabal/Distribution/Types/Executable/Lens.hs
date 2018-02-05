@@ -1,5 +1,6 @@
 module Distribution.Types.Executable.Lens (
     Executable,
+    HasExecutables (..),
     module Distribution.Types.Executable.Lens,
     ) where
 
@@ -30,3 +31,6 @@ buildInfo :: Lens' Executable BuildInfo
 buildInfo f s = fmap (\x -> s { T.buildInfo = x }) (f (T.buildInfo s))
 {-# INLINE buildInfo #-}
 -}
+
+class HasExecutables a where
+  traverseExecutables :: Traversal' a Executable
