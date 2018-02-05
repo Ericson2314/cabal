@@ -10,10 +10,7 @@ import Prelude()
 import Distribution.Compat.Prelude
 import Distribution.Compat.Lens
 
-import Distribution.Types.GenericPackageDescription (GenericPackageDescription(GenericPackageDescription), Flag(MkFlag), FlagName, ConfVar (..))
-
--- lens
-import Distribution.Types.BuildInfo.Lens
+import qualified Distribution.Types.GenericPackageDescription as T
 
 -- We import types from their packages, so we can remove unused imports
 -- and have wider inter-module dependency graph
@@ -23,6 +20,9 @@ import Distribution.Types.Executable (Executable)
 import Distribution.Types.PackageDescription (PackageDescription)
 import Distribution.Types.Benchmark (Benchmark)
 import Distribution.Types.ForeignLib (ForeignLib)
+import Distribution.Types.GenericPackageDescription
+  ( GenericPackageDescription(GenericPackageDescription)
+  , Flag(MkFlag), FlagName, ConfVar (..))
 import Distribution.Types.Library (Library)
 import Distribution.Types.TestSuite (TestSuite)
 import Distribution.Types.UnqualComponentName (UnqualComponentName)
@@ -35,50 +35,36 @@ import Distribution.Version (VersionRange)
 -------------------------------------------------------------------------------
 
 condBenchmarks :: Lens' GenericPackageDescription [(UnqualComponentName, CondTree ConfVar [Dependency] Benchmark)]
-condBenchmarks f (GenericPackageDescription x1 x2 x3 x4 x5 x6 x7 x8) = fmap (\y1 -> GenericPackageDescription x1 x2 x3 x4 x5 x6 x7 y1) (f x8)
+condBenchmarks f s = fmap (\x -> s { T.condBenchmarks = x }) (f (T.condBenchmarks s))
 {-# INLINE condBenchmarks #-}
 
 condExecutables :: Lens' GenericPackageDescription [(UnqualComponentName, CondTree ConfVar [Dependency] Executable)]
-condExecutables f (GenericPackageDescription x1 x2 x3 x4 x5 x6 x7 x8) = fmap (\y1 -> GenericPackageDescription x1 x2 x3 x4 x5 y1 x7 x8) (f x6)
+condExecutables f s = fmap (\x -> s { T.condExecutables = x }) (f (T.condExecutables s))
 {-# INLINE condExecutables #-}
 
 condForeignLibs :: Lens' GenericPackageDescription [(UnqualComponentName, CondTree ConfVar [Dependency] Distribution.Types.ForeignLib.ForeignLib)]
-condForeignLibs f (GenericPackageDescription x1 x2 x3 x4 x5 x6 x7 x8) = fmap (\y1 -> GenericPackageDescription x1 x2 x3 x4 y1 x6 x7 x8) (f x5)
+condForeignLibs f s = fmap (\x -> s { T.condForeignLibs = x }) (f (T.condForeignLibs s))
 {-# INLINE condForeignLibs #-}
 
 condLibrary :: Lens' GenericPackageDescription (Maybe (CondTree ConfVar [Dependency] Library))
-condLibrary f (GenericPackageDescription x1 x2 x3 x4 x5 x6 x7 x8) = fmap (\y1 -> GenericPackageDescription x1 x2 y1 x4 x5 x6 x7 x8) (f x3)
+condLibrary f s = fmap (\x -> s { T.condLibrary = x }) (f (T.condLibrary s))
 {-# INLINE condLibrary #-}
 
 condSubLibraries :: Lens' GenericPackageDescription [(UnqualComponentName, CondTree ConfVar [Dependency] Library)]
-condSubLibraries f (GenericPackageDescription x1 x2 x3 x4 x5 x6 x7 x8) = fmap (\y1 -> GenericPackageDescription x1 x2 x3 y1 x5 x6 x7 x8) (f x4)
+condSubLibraries f s = fmap (\x -> s { T.condSubLibraries = x }) (f (T.condSubLibraries s))
 {-# INLINE condSubLibraries #-}
 
 condTestSuites :: Lens' GenericPackageDescription [(UnqualComponentName, CondTree ConfVar [Dependency] TestSuite)]
-condTestSuites f (GenericPackageDescription x1 x2 x3 x4 x5 x6 x7 x8) = fmap (\y1 -> GenericPackageDescription x1 x2 x3 x4 x5 x6 y1 x8) (f x7)
+condTestSuites f s = fmap (\x -> s { T.condTestSuites = x }) (f (T.condTestSuites s))
 {-# INLINE condTestSuites #-}
 
 genPackageFlags :: Lens' GenericPackageDescription [Flag]
-genPackageFlags f (GenericPackageDescription x1 x2 x3 x4 x5 x6 x7 x8) = fmap (\y1 -> GenericPackageDescription x1 y1 x3 x4 x5 x6 x7 x8) (f x2)
+genPackageFlags f s = fmap (\x -> s { T.genPackageFlags = x }) (f (T.genPackageFlags s))
 {-# INLINE genPackageFlags #-}
 
 packageDescription :: Lens' GenericPackageDescription PackageDescription
 packageDescription f (GenericPackageDescription x1 x2 x3 x4 x5 x6 x7 x8) = fmap (\y1 -> GenericPackageDescription y1 x2 x3 x4 x5 x6 x7 x8) (f x1)
 {-# INLINE packageDescription #-}
-
--------------------------------------------------------------------------------
--- BuildInfos
--------------------------------------------------------------------------------
-
-buildInfos :: Traversal' GenericPackageDescription BuildInfo
-buildInfos f (GenericPackageDescription x1 x2 x3 x4 x5 x6 x7 x8) =
-    GenericPackageDescription x1 x2
-        <$> (traverse . traverse . buildInfo) f x3
-        <*> (traverse . _2 . traverse . buildInfo) f x4
-        <*> (traverse . _2 . traverse . buildInfo) f x5
-        <*> (traverse . _2 . traverse . buildInfo) f x6
-        <*> (traverse . _2 . traverse . buildInfo) f x7
-        <*> (traverse . _2 . traverse . buildInfo) f x8
 
 -------------------------------------------------------------------------------
 -- Flag
