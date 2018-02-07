@@ -485,34 +485,34 @@ instance L.HasBuildInfos PackageDescription where
                                    x1 x2 x3 x4 x5 x6
                                    a20 a21 a22 a23 a24) =
     PackageDescription a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 a16 a17 a18 a19
-        <$> (traverse . L.buildInfo) f x1
-        <*> (traverse . L.buildInfo) f x2
-        <*> (traverse . L.buildInfo) f x3
-        <*> (traverse . L.buildInfo) f x4
-        <*> (traverse . L.buildInfo) f x5
-        <*> (traverse . L.buildInfo) f x6
-        <*> pure a20
-        <*> pure a21
-        <*> pure a22
-        <*> pure a23
-        <*> pure a24
+        <$> (traverse . L.buildInfo) f x1 -- library
+        <*> (traverse . L.buildInfo) f x2 -- sub libraries
+        <*> (traverse . L.buildInfo) f x3 -- executables
+        <*> (traverse . L.buildInfo) f x4 -- foreign libs
+        <*> (traverse . L.buildInfo) f x5 -- test suites
+        <*> (traverse . L.buildInfo) f x6 -- benchmarks
+        <*> pure a20                      -- data files
+        <*> pure a21                      -- data dir
+        <*> pure a22                      -- exta src files
+        <*> pure a23                      -- extra temp files
+        <*> pure a24                      -- extra doc files
 
 instance L.HasLibraries PackageDescription where
   traverseLibraries f (PackageDescription a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 a16 a17 a18 a19
                                    x1 x2 x3 x4 x5 x6
                                    a20 a21 a22 a23 a24) =
     PackageDescription a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 a16 a17 a18 a19
-        <$> traverse f x1
-        <*> traverse f x2
-        <*> pure x3
-        <*> pure x4
-        <*> pure x5
-        <*> pure x6
-        <*> pure a20
-        <*> pure a21
-        <*> pure a22
-        <*> pure a23
-        <*> pure a24
+        <$> traverse f x1  -- library
+        <*> traverse f x2  -- sub libraries
+        <*> pure x3        -- executables
+        <*> pure x4        -- foreign libs
+        <*> pure x5        -- test suites
+        <*> pure x6        -- benchmarks
+        <*> pure a20       -- data files
+        <*> pure a21       -- data dir
+        <*> pure a22       -- exta src files
+        <*> pure a23       -- extra temp files
+        <*> pure a24       -- extra doc files
 
 instance L.HasExecutables PackageDescription where
   traverseExecutables f s = fmap (\x -> s { executables = x }) (traverse f (executables s))
